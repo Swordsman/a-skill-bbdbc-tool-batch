@@ -4,12 +4,12 @@ set -euo pipefail
 # Size-gate a single file: inline if under threshold, retain otherwise.
 # Usage: ./size-gate.sh <file>
 # Env:
-#   BCTB_GATE_THRESHOLD  — max bytes to inline (default: 200000)
-#   BCTB_RETAIN_DIR      — where to retain gated output (default: .bctb-retained)
+#   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
+#   BATCH_RETAIN_DIR      — where to retain gated output (default: .batch-retained)
 
 FILE="${1:?Usage: size-gate.sh <file>}"
-GATE_THRESHOLD="${BCTB_GATE_THRESHOLD:-200000}"
-RETAIN_DIR="${BCTB_RETAIN_DIR:-.bctb-retained}"
+GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
+RETAIN_DIR="${BATCH_RETAIN_DIR:-.batch-retained}"
 
 if [ ! -f "$FILE" ]; then
   echo "[NOT FOUND: ${FILE}]"

@@ -27,8 +27,8 @@ See `scripts/mime-batch.sh` for the executable version. Core pattern:
 
 ```bash
 # Usage: ./scripts/mime-batch.sh file1.py file2.py config.yaml
-# Env: BCTB_GATE_THRESHOLD (default 200000 bytes)
-#      BCTB_RETAIN_DIR     (default .bctb-retained)
+# Env: BATCH_GATE_THRESHOLD (default 200000 bytes)
+#      BATCH_RETAIN_DIR     (default .batch-retained)
 ```
 
 Reads each file, wraps it in a MIME multipart boundary. Files exceeding the gate threshold are copied to the retain directory and a gating notice is emitted instead of the content. The retain directory persists across sessions — gated output is never lost.
@@ -43,7 +43,7 @@ Every file read must be gated by byte count. See `scripts/size-gate.sh` for the 
 
 Route output through the gate. Return inline only if under threshold; otherwise retain to the persistent directory and report. Never discard output.
 
-Threshold is configurable via `BCTB_GATE_THRESHOLD` (default: 200000 bytes). Retain directory is configurable via `BCTB_RETAIN_DIR` (default: `.bctb-retained`).
+Threshold is configurable via `BATCH_GATE_THRESHOLD` (default: 200000 bytes). Retain directory is configurable via `BATCH_RETAIN_DIR` (default: `.batch-retained`).
 
 When output is gated, surface this to the user — including the threshold value, the actual size, and that the threshold is configurable. Assume the user wants to know unless there's tangible evidence they're already aware or wouldn't care (e.g., they configured the threshold themselves, or they've acknowledged a prior gating event in the same session).
 
@@ -66,7 +66,7 @@ For complex multi-operation tasks, plan a tool manifest before executing. See `r
 - **Assuming output size** — README.md could be 500 bytes or 500KB. Don't guess; pre-check with `wc -c`.
 - **Re-reading unchanged files** — already in context. Don't re-read.
 - **Speculative reads** — reading "just to check" without a plan. Batch with purpose.
-- **Volatile temp files** — `mktemp` in `/tmp` is wiped on reboot. Gated output must persist. Use `BCTB_RETAIN_DIR`.
+- **Volatile temp files** — `mktemp` in `/tmp` is wiped on reboot. Gated output must persist. Use `BATCH_RETAIN_DIR`.
 
 ## Integration
 

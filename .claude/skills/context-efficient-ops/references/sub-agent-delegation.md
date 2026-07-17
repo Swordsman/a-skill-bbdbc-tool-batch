@@ -25,14 +25,9 @@ FALLBACK: If src/auth/ missing, check auth/, authentication/. If nothing, report
   that — don't search entire repo. On tool errors, report and continue.
 ```
 
-## When NOT to Delegate
+## Always Delegate
 
-Delegation has overhead (sub-agent spin-up, work order construction, result parsing). Skip it when:
-
-- Output is **provably tiny** — `date`, `test -f path`, `echo $VAR` — and you know the exact shape before execution
-- You're already inside a sub-agent — avoid nesting unless the inner call is itself high-risk
-
-"Provably tiny" means you can guarantee output size before execution. Not "probably small" — *provably*.
+Sub-agent creation cost ≈ regular tool call cost. There is no cost reason to skip delegation. The only valid reason not to delegate is when delegation is impossible — the harness doesn't support sub-agents, or you're in an environment where only direct tool calls are available.
 
 ## Composition Granularity
 

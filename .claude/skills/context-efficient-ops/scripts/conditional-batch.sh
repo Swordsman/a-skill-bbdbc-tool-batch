@@ -5,11 +5,11 @@ set -euo pipefail
 # relevant files. 1 round-trip instead of N.
 # Usage: ./conditional-batch.sh
 # Env:
-#   BCTB_GATE_THRESHOLD  — max bytes to inline (default: 200000)
-#   BCTB_RETAIN_DIR      — where to retain gated output (default: .bctb-retained)
+#   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
+#   BATCH_RETAIN_DIR      — where to retain gated output (default: .batch-retained)
 
-GATE_THRESHOLD="${BCTB_GATE_THRESHOLD:-200000}"
-RETAIN_DIR="${BCTB_RETAIN_DIR:-.bctb-retained}"
+GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
+RETAIN_DIR="${BATCH_RETAIN_DIR:-.batch-retained}"
 BOUNDARY="batch_$(head -c 8 /dev/urandom | xxd -p)"
 
 mkdir -p "$RETAIN_DIR"
@@ -38,6 +38,9 @@ for f in $FILES; do
 
   BYTES=$(wc -c < "$f")
   if [ "$BYTES" -le "$GATE_THRESHOLD" ]; then
+    if grep -qF "$BOUNDARY" "$f"; then
+      BOUNDARY="batch_$(head -c 8 /dev/urandom | xxd -p)"
+    fi
     cat "$f"
   else
     RETAINED="${RETAIN_DIR}/$(echo "$f" | tr '/' '_')_$(date +%s)"

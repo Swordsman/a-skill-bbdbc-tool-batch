@@ -7,15 +7,9 @@ description: "Tool call batching (+delegation if able) to improve token efficien
 
 Tool calls retransmit the full context window and output joins context permanently; this skill minimizes both costs. Applies to all tool output — file reads, bash commands, API calls, MCP tools — not just files. For full rationale, see `references/rationale.md`.
 
-## Default: Delegate Everything
+## Core Technique: Reduce Output at the Source
 
-Every tool call's output joins context permanently. Sub-agent creation cost ≈ direct tool call cost (both are one round-trip), but sub-agents provide a disposable context — raw output stays there instead of polluting the head agent. Delegation at worst breaks even; for anything non-trivial it's strictly better. There is no cost reason to skip it.
-
-**Delegate by default. Use direct tool calls only when the environment doesn't support sub-agents.** Sub-agents should also apply the batching and pipe techniques below internally. See `references/sub-agent-delegation.md` for work order format and composition patterns.
-
-## When Calling Tools Directly: Reduce Output at the Source
-
-When delegation isn't available, or for trivial operations where the output is provably small, minimize what enters context.
+Every byte of tool output joins context permanently. Always minimize what enters context — every agent, head or sub-agent, applies these techniques on every tool call.
 
 ### Pipes: the cheapest gate
 
@@ -86,6 +80,10 @@ For multi-file reads, `scripts/mime-batch.sh` wraps each file in a MIME multipar
 
 See `scripts/conditional-batch.sh` — reads a runtime value, branches on it, and batch-reads only the relevant files in one call.
 
+## Sub-Agent Delegation
+
+Batching and pipes apply universally. Sub-agents are an *additional* layer — when available, always use them because they provide a disposable context that shields the head agent from raw output. Sub-agents apply all the same batching and pipe techniques internally. See `references/sub-agent-delegation.md` for work order format and composition patterns.
+
 ## Output Format
 
 For MIME tier details (aimpack → munpack-compat → tagged separators), see `references/output-format.md`.
@@ -96,7 +94,6 @@ For complex multi-operation tasks, plan a tool manifest before executing. See `r
 
 ## Anti-Patterns
 
-- **Direct tool calls when sub-agents are available** — delegation is the default, not an optimization. Skip it only when the environment doesn't support sub-agents.
 - **Unbounded commands** — `find /`, `grep -r`, `git log`, `docker logs`, `cat unknown_file`. Always pipe to bound output.
 - **Serial single-item tool calls** — batch or delegate.
 - **Assuming output size** — README.md could be 500 bytes or 500KB. `git diff` could be 3 lines or 3MB. Pre-check or pipe.

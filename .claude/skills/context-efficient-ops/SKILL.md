@@ -1,5 +1,5 @@
 ---
-name: blackcontract-tool-batch
+name: bbdbc-tool-batch
 description: "Batch tool calls, gate output by size, delegate to sub-agents. Minimizes token waste and protects the context window."
 ---
 

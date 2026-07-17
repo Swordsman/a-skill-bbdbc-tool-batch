@@ -28,7 +28,7 @@ Content-Disposition: inline; name="metadata"
 ```
 
 Rules:
-- Boundary: randomly generated (e.g., `batch_` + 16 hex chars), **must not appear in payload** — verify with `grep -qF "$BOUNDARY" "$TMPOUT"` before emitting each part; regenerate if collision detected
+- Boundary: randomly generated (e.g., `batch_` + 16 hex chars), **must not appear in any payload** — scan all input files for collisions before emitting any output; regenerate and re-scan if a collision is found. Never regenerate mid-output — earlier parts already used the old boundary, producing malformed MIME.
 - Each part gets `Content-Type` and `Content-Disposition` or `name` parameter
 - Final boundary gets trailing `--`
 

@@ -5,50 +5,84 @@ description: "Tool call batching (+delegation if able) to improve token efficien
 
 # BBDBC Tool Batch
 
-Tool calls retransmit the full context window and output joins context permanently; this skill minimizes both costs. For full rationale, see `references/rationale.md`.
+Tool calls retransmit the full context window and output joins context permanently; this skill minimizes both costs. Applies to all tool output — file reads, bash commands, API calls, MCP tools — not just files. For full rationale, see `references/rationale.md`.
 
-## Core Technique: Batch Everything
+## Core Technique: Reduce Output at the Source
 
-Combine multiple tool operations into single calls. This applies universally — head-agents, sub-agents, any context where tools are called.
+Every byte of tool output joins context permanently. Always minimize what enters context — every agent, head or sub-agent, applies these techniques on every tool call.
+
+### Pipes: the cheapest gate
+
+Pipes truncate output before it reaches context. Use them to extract what's needed and discard the rest:
+
+```bash
+# Counts instead of listings
+find src/ -name '*.py' | wc -l                    # file count, not file list
+git log --oneline | wc -l                          # commit count, not full log
+
+# Bounded output
+git log --oneline -20                              # last 20, not all history
+git diff --stat                                    # summary, not full diff
+docker logs app 2>&1 | tail -50                    # last 50 lines, not all logs
+
+# Extract specific data
+grep -c 'def ' src/auth/*.py                       # function counts per file
+jq '.dependencies | keys' package.json             # dep names, not full lockfile
+kubectl get pods -o name                            # names only, not full table
+```
+
+The pattern: ask "what do I actually need to know?" and pipe to get exactly that. A count, a summary, the last N lines, a specific field — not the raw dump.
 
 ### Pre-check before committing
 
-Before reading unknown files, use lightweight probes to avoid blowing up context:
+Before reading unknown content, probe its size:
 
 ```bash
-wc -c src/auth/*.py           # byte counts — token burn correlates with bytes, not lines
-head -c 500 src/app.py        # structure check without full read
-find src/ -name '*.py' | wc -l  # file count — decides batching strategy
+wc -c src/auth/*.py                                # byte counts for files
+git diff | wc -c                                   # diff size before reading it
+curl -sI https://api.example.com/data | grep -i content-length  # API response size
 ```
 
-### MIME-wrapped bash batch
+### Size gate
 
-See `scripts/mime-batch.sh` for the executable version. Core pattern:
+Route any output — file or command — through a size gate. Inline if under threshold; otherwise save to a temp file and report the path. See `scripts/size-gate.sh`:
 
 ```bash
-# Usage: ./scripts/mime-batch.sh file1.py file2.py config.yaml
-# Env: BATCH_GATE_THRESHOLD (default 200000 bytes)
+./scripts/size-gate.sh myfile.py                   # gate a file
+git diff HEAD~5 | ./scripts/size-gate.sh           # gate a command via stdin
+kubectl logs deploy/app | ./scripts/size-gate.sh   # gate any piped output
 ```
 
-Reads each file, wraps it in a MIME multipart boundary. Files exceeding the gate threshold are copied to `/tmp` and a gating notice is emitted instead of the content. If the gated output needs to survive the session, copy it out explicitly.
+Threshold is configurable via `BATCH_GATE_THRESHOLD` (default: 200000 bytes). When output is gated, surface this to the user — including the threshold, the actual size, and that the threshold is configurable.
 
-### With conditional branching (1 round-trip instead of 3)
+## Batch Multiple Operations
 
-See `scripts/conditional-batch.sh`. Reads a runtime value, branches on it, and batch-reads only the relevant files — all in one tool call.
+Combine independent operations into single tool calls to reduce round-trips.
 
-### Size guards (ALWAYS include)
+### Command batching
 
-Every file read must be gated by byte count. See `scripts/size-gate.sh` for the standalone version.
+```bash
+# One call instead of three
+echo "=== git status ===" && git status --short
+echo "=== recent commits ===" && git log --oneline -10
+echo "=== branch ===" && git branch --show-current
+```
 
-Route output through the gate. Return inline only if under threshold; otherwise copy to `/tmp` and report the path. Never discard output — but `/tmp` is volatile by design. If output needs to survive, copy it out explicitly.
+### MIME-wrapped file batch
 
-Threshold is configurable via `BATCH_GATE_THRESHOLD` (default: 200000 bytes).
+For multi-file reads, `scripts/mime-batch.sh` wraps each file in a MIME multipart container with size gating:
 
-When output is gated, surface this to the user — including the threshold value, the actual size, and that the threshold is configurable. Assume the user wants to know unless there's tangible evidence they're already aware or wouldn't care (e.g., they configured the threshold themselves, or they've acknowledged a prior gating event in the same session).
+```bash
+./scripts/mime-batch.sh src/app.py src/config.py src/auth.py
+```
+
+### Conditional branching (1 round-trip instead of N)
+
+See `scripts/conditional-batch.sh` — reads a runtime value, branches on it, and batch-reads only the relevant files in one call.
 
 ## Sub-Agent Delegation
 
-If sub-agents are available, delegate tool calls through them as a context blast shield. Sub-agents should also batch internally using the patterns above. See `references/sub-agent-delegation.md`.
+Batching and pipes apply universally. Sub-agents are an *additional* layer — when available, always use them because they provide a disposable context that shields the head agent from raw output. Sub-agents apply all the same batching and pipe techniques internally. See `references/sub-agent-delegation.md` for work order format and composition patterns.
 
 ## Output Format
 
@@ -60,11 +94,11 @@ For complex multi-operation tasks, plan a tool manifest before executing. See `r
 
 ## Anti-Patterns
 
-- **Serial single-file reads** — most common waste. Batch or delegate.
-- **Unbounded commands without guards** — `find /`, `grep -r`, `cat unknown_file`. Always guard.
-- **Assuming output size** — README.md could be 500 bytes or 500KB. Don't guess; pre-check with `wc -c`.
-- **Re-reading unchanged files** — already in context. Don't re-read.
-- **Speculative reads** — reading "just to check" without a plan. Batch with purpose.
+- **Unbounded commands** — `find /`, `grep -r`, `git log`, `docker logs`, `cat unknown_file`. Always pipe to bound output.
+- **Serial single-item tool calls** — batch or delegate.
+- **Assuming output size** — README.md could be 500 bytes or 500KB. `git diff` could be 3 lines or 3MB. Pre-check or pipe.
+- **Re-reading unchanged content** — already in context. Don't re-read.
+- **Requesting full output when a summary suffices** — use `--stat`, `--short`, `--oneline`, `| wc -l`, `| head`, `jq` selectors.
 
 ## Integration
 

@@ -25,9 +25,9 @@ FALLBACK: If src/auth/ missing, check auth/, authentication/. If nothing, report
   that — don't search entire repo. On tool errors, report and continue.
 ```
 
-## Always Delegate
+## Always Delegate When Available
 
-Sub-agent creation cost ≈ regular tool call cost. There is no cost reason to skip delegation. The only valid reason not to delegate is when delegation is impossible — the harness doesn't support sub-agents, or you're in an environment where only direct tool calls are available.
+Sub-agent creation cost ≈ regular tool call cost. There is no cost reason to skip delegation — always use it unless the environment doesn't support sub-agents. But delegation is additive to batching, not a replacement. Sub-agents apply the same batching, pipe, and size-gating techniques internally.
 
 ## Composition Granularity
 

@@ -40,6 +40,16 @@ Disk reads take negligible time. The bottleneck is GPU inference — the agent's
 
 Parallelism is orthogonal. The skill teaches how to minimize context growth from tool output (via size gating, MIME batching, pipes, and delegation). Speed optimizations (fewer round-trips, faster I/O) are a separate concern and do not belong in this skill.
 
+## Agents and self-awareness
+
+Agents generally lack deep understanding of their own execution mechanics — how tool calls work at the API level, what happens to context between turns, how inference cycles relate to token cost. This isn't a deficiency to fix; it's a structural reality. Models' training doesn't (and realistically can't) cover every detail of every execution environment, and those environments change constantly. Competent platforms try to fill gaps via system prompts, but those are written by humans with their own biases and blind spots, and can't catch everything.
+
+This shapes how the skill must be designed:
+
+- **If agents already understood the principles, they wouldn't need the skill.** The skill exists precisely to inject knowledge the agent doesn't have. Never assume the agent understands WHY it should follow the skill's instructions — explain the reasoning.
+- **Trigger descriptions must use observable conditions, not taught concepts.** "Multiple tool calls" is something an agent can see about its own task. "Batchable" presupposes understanding of batching. The former triggers reliably; the latter depends on knowledge the skill hasn't loaded yet.
+- **Temporal/parallel concepts are unreliable.** Agents' sense of time, if they can be said to have one, is disconnected from human time. "Sequential" may not parse correctly relative to the agent's own experience. "Multiple" was included as a safety net — it catches the same condition from a different angle that doesn't require understanding temporal ordering.
+
 ## Skill development rules
 
 ### The description is the trigger
@@ -59,3 +69,7 @@ The skill body stays in context for the rest of the session once loaded. Every l
 ### Surface lack of understanding
 
 If any instruction, principle, or rationale is unclear, say so explicitly rather than silently complying. An agent that acts on incomplete understanding produces hidden failures — changes that look correct but subtly contradict the intent. This is unacceptable. Ask for clarification before writing code or documentation based on assumptions. The cost of asking is one exchange; the cost of a hidden failure compounds across every future session that builds on the wrong foundation.
+
+### Persist deep insights
+
+When a conversation produces insights that are fundamental, non-obvious, or important to the skill's design rationale — especially insights about how agents work, why certain design choices matter, or principles that inform future decisions — persist them to this file immediately. Conversation context is ephemeral; CLAUDE.md survives across sessions. An insight that isn't written down is an insight that will be re-derived (at best) or lost (at worst) by every future session. Don't wait until the end of a conversation to capture these — write them as they emerge.

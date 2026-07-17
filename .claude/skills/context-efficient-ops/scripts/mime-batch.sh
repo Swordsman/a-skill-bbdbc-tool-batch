@@ -5,13 +5,9 @@ set -euo pipefail
 # Usage: ./mime-batch.sh file1.py file2.py config.yaml
 # Env:
 #   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
-#   BATCH_RETAIN_DIR      — where to retain gated output (default: .batch-retained)
 
 GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
-RETAIN_DIR="${BATCH_RETAIN_DIR:-.batch-retained}"
 BOUNDARY="batch_$(head -c 8 /dev/urandom | xxd -p)"
-
-mkdir -p "$RETAIN_DIR"
 
 for f in "$@"; do
   echo "--${BOUNDARY}"
@@ -31,9 +27,9 @@ for f in "$@"; do
     fi
     cat "$f"
   else
-    RETAINED="${RETAIN_DIR}/$(echo "$f" | tr '/' '_')_$(date +%s)"
-    cp "$f" "$RETAINED"
-    echo "[GATED: ${BYTES} bytes > ${GATE_THRESHOLD} threshold — retained at ${RETAINED}]"
+    TMPREF=$(mktemp)
+    cp "$f" "$TMPREF"
+    echo "[GATED: ${BYTES} bytes > ${GATE_THRESHOLD} threshold — available at ${TMPREF}]"
   fi
 done
 echo "--${BOUNDARY}--"

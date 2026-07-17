@@ -6,13 +6,9 @@ set -euo pipefail
 # Usage: ./conditional-batch.sh
 # Env:
 #   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
-#   BATCH_RETAIN_DIR      — where to retain gated output (default: .batch-retained)
 
 GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
-RETAIN_DIR="${BATCH_RETAIN_DIR:-.batch-retained}"
 BOUNDARY="batch_$(head -c 8 /dev/urandom | xxd -p)"
-
-mkdir -p "$RETAIN_DIR"
 
 AUTH_TYPE=$(grep -Po '(?<=AUTH_BACKEND=)\w+' .env 2>/dev/null || echo "unknown")
 echo "--${BOUNDARY}"
@@ -43,9 +39,9 @@ for f in $FILES; do
     fi
     cat "$f"
   else
-    RETAINED="${RETAIN_DIR}/$(echo "$f" | tr '/' '_')_$(date +%s)"
-    cp "$f" "$RETAINED"
-    echo "[GATED: ${BYTES} bytes > ${GATE_THRESHOLD} threshold — retained at ${RETAINED}]"
+    TMPREF=$(mktemp)
+    cp "$f" "$TMPREF"
+    echo "[GATED: ${BYTES} bytes > ${GATE_THRESHOLD} threshold — available at ${TMPREF}]"
   fi
 done
 echo "--${BOUNDARY}--"

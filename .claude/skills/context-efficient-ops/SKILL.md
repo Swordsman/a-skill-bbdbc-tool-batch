@@ -28,10 +28,9 @@ See `scripts/mime-batch.sh` for the executable version. Core pattern:
 ```bash
 # Usage: ./scripts/mime-batch.sh file1.py file2.py config.yaml
 # Env: BATCH_GATE_THRESHOLD (default 200000 bytes)
-#      BATCH_RETAIN_DIR     (default .batch-retained)
 ```
 
-Reads each file, wraps it in a MIME multipart boundary. Files exceeding the gate threshold are copied to the retain directory and a gating notice is emitted instead of the content. The retain directory persists across sessions — gated output is never lost.
+Reads each file, wraps it in a MIME multipart boundary. Files exceeding the gate threshold are copied to `/tmp` and a gating notice is emitted instead of the content. If the gated output needs to survive the session, copy it out explicitly.
 
 ### With conditional branching (1 round-trip instead of 3)
 
@@ -41,9 +40,9 @@ See `scripts/conditional-batch.sh`. Reads a runtime value, branches on it, and b
 
 Every file read must be gated by byte count. See `scripts/size-gate.sh` for the standalone version.
 
-Route output through the gate. Return inline only if under threshold; otherwise retain to the persistent directory and report. Never discard output.
+Route output through the gate. Return inline only if under threshold; otherwise copy to `/tmp` and report the path. Never discard output — but `/tmp` is volatile by design. If output needs to survive, copy it out explicitly.
 
-Threshold is configurable via `BATCH_GATE_THRESHOLD` (default: 200000 bytes). Retain directory is configurable via `BATCH_RETAIN_DIR` (default: `.batch-retained`).
+Threshold is configurable via `BATCH_GATE_THRESHOLD` (default: 200000 bytes).
 
 When output is gated, surface this to the user — including the threshold value, the actual size, and that the threshold is configurable. Assume the user wants to know unless there's tangible evidence they're already aware or wouldn't care (e.g., they configured the threshold themselves, or they've acknowledged a prior gating event in the same session).
 
@@ -66,7 +65,7 @@ For complex multi-operation tasks, plan a tool manifest before executing. See `r
 - **Assuming output size** — README.md could be 500 bytes or 500KB. Don't guess; pre-check with `wc -c`.
 - **Re-reading unchanged files** — already in context. Don't re-read.
 - **Speculative reads** — reading "just to check" without a plan. Batch with purpose.
-- **Volatile temp files** — `mktemp` in `/tmp` is wiped on reboot. Gated output must persist. Use `BATCH_RETAIN_DIR`.
+- **Leaking temp files** — gated output in `/tmp` auto-cleans on reboot. Don't create persistent retain directories that grow unbounded.
 
 ## Integration
 

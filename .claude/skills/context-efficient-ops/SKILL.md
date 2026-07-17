@@ -65,7 +65,6 @@ For complex multi-operation tasks, plan a tool manifest before executing. See `r
 - **Assuming output size** — README.md could be 500 bytes or 500KB. Don't guess; pre-check with `wc -c`.
 - **Re-reading unchanged files** — already in context. Don't re-read.
 - **Speculative reads** — reading "just to check" without a plan. Batch with purpose.
-- **Leaking temp files** — gated output in `/tmp` auto-cleans on reboot. Don't create persistent retain directories that grow unbounded.
 
 ## Integration
 

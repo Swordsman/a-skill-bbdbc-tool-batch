@@ -46,6 +46,8 @@ Parallelism is orthogonal. The skill teaches how to minimize context growth from
 
 The `description` field in SKILL.md frontmatter is the primary mechanism that determines whether Claude invokes the skill. Claude undertriggers by default — descriptions must be pushy, with explicit trigger phrases covering the contexts where the skill should activate. See `references/skill-creation-guide.md` for the official guidance.
 
+Description triggers must be phrased in terms of conditions the agent can observe about its own task, not in terms of the concepts the skill teaches. Agents generally lack deep understanding of their own execution mechanics — if they already understood the principles, they wouldn't need the skill. Terms like "multiple" and "sequential" describe observable task properties; terms like "batchable" presuppose understanding of batching and are ambiguous (does it mean "can be" or "should be"). The current description's use of "batchable" is a known weak point — revisit it periodically to see if a more observable trigger phrase emerges from real usage patterns.
+
 ### Don't add features the skill doesn't need
 
 Previous sessions have invented unnecessary mechanisms (persistent retain directories, "native parallel" as a batching strategy). If a proposed change doesn't serve context efficiency, it doesn't belong. Evaluate changes against the core principles above.

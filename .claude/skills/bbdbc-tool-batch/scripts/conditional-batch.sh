@@ -8,19 +8,38 @@ set -euo pipefail
 #   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
 
 GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
-BOUNDARY="batch_$(head -c 8 /dev/urandom | xxd -p)"
+
+gen_boundary() { echo "batch_$(od -An -tx1 -N8 /dev/urandom | tr -d ' \n')"; }
 
 AUTH_TYPE=$(grep -Po '(?<=AUTH_BACKEND=)\w+' .env 2>/dev/null || echo "unknown")
-echo "--${BOUNDARY}"
-echo "Content-Disposition: inline; name=\"auth_type\""
-echo ""
-echo "$AUTH_TYPE"
 
 if [ "$AUTH_TYPE" = "oauth" ]; then
   FILES="src/oauth.py src/tokens.py"
 else
   FILES="src/jwt.py src/claims.py"
 fi
+
+# Generate a boundary that doesn't collide with any input file content.
+collision=true
+while $collision; do
+  BOUNDARY=$(gen_boundary)
+  collision=false
+  for f in $FILES; do
+    if [ -f "$f" ] && grep -qF "$BOUNDARY" "$f" 2>/dev/null; then
+      collision=true
+      break
+    fi
+  done
+done
+
+echo "MIME-Version: 1.0"
+echo "Content-Type: multipart/mixed; boundary=\"${BOUNDARY}\""
+echo ""
+
+echo "--${BOUNDARY}"
+echo "Content-Disposition: inline; name=\"auth_type\""
+echo ""
+echo "$AUTH_TYPE"
 
 for f in $FILES; do
   echo "--${BOUNDARY}"
@@ -34,9 +53,6 @@ for f in $FILES; do
 
   BYTES=$(wc -c < "$f")
   if [ "$BYTES" -le "$GATE_THRESHOLD" ]; then
-    if grep -qF "$BOUNDARY" "$f"; then
-      BOUNDARY="batch_$(head -c 8 /dev/urandom | xxd -p)"
-    fi
     cat "$f"
   else
     TMPREF=$(mktemp)

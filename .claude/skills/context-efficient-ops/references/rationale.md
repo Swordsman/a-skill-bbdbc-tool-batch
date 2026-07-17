@@ -1,8 +1,8 @@
 # Why This Skill Exists
 
-Every tool call triggers a full inference round-trip. The entire context window — including all prior tool results — is retransmitted each time. Context grows with each result: if you start at 80K tokens and make 5 file reads returning 10K tokens each, the 5th call retransmits ~120K tokens. Total input across all calls: ~500K tokens for 50K tokens of actual content. The cost is `O(n * context_size)` where context_size grows with each result — worse than linear.
+Every tool call triggers a full inference round-trip. The entire context window is retransmitted each time — the API is stateless, so every request sends the full conversation history. At 80K context, 5 file reads = ~400K tokens of redundant retransmission — `O(context_size)` cost per `O(1)` operation. And it's worse than that: each tool result joins context permanently, so the window grows with every call, making subsequent retransmissions even larger.
 
-Tool output also joins context permanently — one bad return can destroy the conversation.
+One bad return can destroy the conversation.
 
 ## The Ergonomics Mismatch
 

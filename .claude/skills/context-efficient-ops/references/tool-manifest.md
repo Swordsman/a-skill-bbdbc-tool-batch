@@ -7,7 +7,7 @@ Before executing any tool operations, enumerate needs and plan batches. This is 
 1. **List all operations** — files, commands, queries, API calls needed
 2. **Classify each** — provably bounded? Dependencies between operations?
 3. **Group into batches** — independent ops batch together; dependent chains stay in a single sub-agent
-4. **Choose strategy** — native parallel calls (independent, known-small), sub-agent (default for unknown/large), batched bash (dependent chains or no sub-agents), direct (provably tiny)
+4. **Choose strategy** — sub-agent (default), batched bash (dependent chains or no sub-agents), direct (provably tiny)
 5. **Specify output contracts** — for each batch/delegation, define what you need back
 
 ## Example
@@ -21,7 +21,7 @@ OPS:
   4. Check coverage report           [potentially huge]
   5. Read requirements.txt           [unknown size]
 PLAN:
-  Sub-agent A (ops 1-3): dependent chain. Return file list + contents if <200 lines.
+  Sub-agent A (ops 1-3): dependent chain. Return file list + contents if <50KB each.
   Sub-agent B (op 4): high-risk. Return summary stats only.
-  Sub-agent C (op 5): Return full contents. Fallback: if >500 lines, names only.
+  Sub-agent C (op 5): Return full contents. Fallback: if >100KB, dependency names only.
 ```

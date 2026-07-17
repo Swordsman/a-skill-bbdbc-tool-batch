@@ -18,9 +18,9 @@ Don't send bare tool calls. Send a structured work order — Design by Contract 
 ```
 CONTEXT: Refactoring auth module. Large monorepo, file sizes unknown.
 INTENT: Read Python files under src/auth/, identify module structure + API surface.
-OUTPUT SPEC: File list with line counts. Public functions/classes (name+sig only).
-  Import graph. Do NOT return file contents unless <50 lines.
-EXPECTATIONS: 5-20 files. If >50, report count and stop. Flag files >1000 lines.
+OUTPUT SPEC: File list with byte counts. Public functions/classes (name+sig only).
+  Import graph. Do NOT return file contents unless <10KB.
+EXPECTATIONS: 5-20 files. If >50, report count and stop. Flag files >200KB.
 FALLBACK: If src/auth/ missing, check auth/, authentication/. If nothing, report
   that — don't search entire repo. On tool errors, report and continue.
 ```
@@ -31,7 +31,6 @@ Delegation has overhead (sub-agent spin-up, work order construction, result pars
 
 - Output is **provably tiny** — `date`, `test -f path`, `echo $VAR` — and you know the exact shape before execution
 - You're already inside a sub-agent — avoid nesting unless the inner call is itself high-risk
-- The harness supports native parallel tool calls and the operations are simple independent reads with known-small files
 
 "Provably tiny" means you can guarantee output size before execution. Not "probably small" — *provably*.
 

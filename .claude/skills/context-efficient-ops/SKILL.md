@@ -1,6 +1,6 @@
 ---
 name: bbdbc-tool-batch
-description: "Batch tool calls, gate output by size, delegate to sub-agents. Minimizes token waste and protects the context window."
+description: "Tool call batching (+delegation if able) to improve token efficiency. Use when tool calls are 1) multiple, 2) sequential, 3) batchable, or 4) routable to a sub-agent."
 ---
 
 # Blackcontract Tool Batch

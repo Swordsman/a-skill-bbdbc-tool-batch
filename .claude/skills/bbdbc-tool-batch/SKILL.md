@@ -3,7 +3,7 @@ name: bbdbc-tool-batch
 description: "Tool call batching (+delegation if able) to improve token efficiency. Use when tool calls are 1) multiple, 2) sequential, 3) batchable, or 4) routable to a sub-agent."
 ---
 
-# Blackcontract Tool Batch
+# BBDBC Tool Batch
 
 Tool calls retransmit the full context window and output joins context permanently; this skill minimizes both costs. For full rationale, see `references/rationale.md`.
 

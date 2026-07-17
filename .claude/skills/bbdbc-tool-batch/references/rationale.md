@@ -16,6 +16,10 @@ Shell tools were designed for human terminals in 1969. Their output — scrollab
 
 ## The Core Insight
 
-Sub-agent creation cost ≈ regular tool call cost (both are one round-trip retransmitting full context), but the sub-agent provides a context blast shield for free. Delegation at worst breaks even and almost always results in massively improved token efficiency over the course of a session — raw output stays in the sub-agent's disposable context instead of joining the head agent's permanent context. There is no valid efficiency reason to skip delegation. The only reason not to delegate is when delegation is impossible — the environment doesn't support sub-agents.
+Batching takes N separate tool calls — each a full context retransmission — and performs the work within a single tool call, concatenating the outputs into one well-formed response. This reduces N retransmissions to 1, and that compounds over a conversation: fewer calls means less context growth, which means cheaper subsequent calls, which means dramatically more work per quota. This applies to all agents — head agents and sub-agents alike.
+
+Pipes provide an additional layer of shielding at the command level. Intermediate data stays ephemeral in the pipe buffer and never enters context. `find src/ -name '*.py' | wc -l` produces a number, not a file listing.
+
+Sub-agent delegation is an excellent adjunct to batching. Sub-agent creation cost ≈ regular tool call cost (both are one round-trip), but the sub-agent provides a disposable context — raw output stays there instead of joining the head agent's permanent context. Delegation should always be used when available, but does not replace batching — sub-agents apply the same batching and pipe techniques internally.
 
 What the harness calls "parallel tool calls" (multiple calls in one turn) is not true parallelism — each call still triggers a separate inference cycle retransmitting the full context. The "parallel" just removes the user interaction step between calls. The bottleneck is inference (GPU processing), not I/O (disk reads are negligible). True parallelism requires sub-agents, because each sub-agent is an independent inference process with its own context.

@@ -7,11 +7,29 @@ set -euo pipefail
 #   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
 
 GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
-BOUNDARY="batch_$(head -c 8 /dev/urandom | xxd -p)"
+
+gen_boundary() { echo "batch_$(od -An -tx1 -N8 /dev/urandom | tr -d ' \n')"; }
+
+# Generate a boundary that doesn't collide with any input file content.
+collision=true
+while $collision; do
+  BOUNDARY=$(gen_boundary)
+  collision=false
+  for f in "$@"; do
+    if [ -f "$f" ] && grep -qF "$BOUNDARY" "$f" 2>/dev/null; then
+      collision=true
+      break
+    fi
+  done
+done
+
+echo "MIME-Version: 1.0"
+echo "Content-Type: multipart/mixed; boundary=\"${BOUNDARY}\""
+echo ""
 
 for f in "$@"; do
   echo "--${BOUNDARY}"
-  echo "Content-Type: text/plain"
+  echo "Content-Type: text/plain; charset=utf-8"
   echo "Content-Disposition: attachment; filename=\"${f}\""
   echo ""
 
@@ -22,9 +40,6 @@ for f in "$@"; do
 
   BYTES=$(wc -c < "$f")
   if [ "$BYTES" -le "$GATE_THRESHOLD" ]; then
-    if grep -qF "$BOUNDARY" "$f"; then
-      BOUNDARY="batch_$(head -c 8 /dev/urandom | xxd -p)"
-    fi
     cat "$f"
   else
     TMPREF=$(mktemp)

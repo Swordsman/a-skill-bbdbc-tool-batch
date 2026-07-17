@@ -1,0 +1,709 @@
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="aimpack_cc3c699bf9c18c14"
+X-Aimpack-Container-Id: b755ba75-0020-41d3-93ed-6909a86b3ec9
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/x-aimpack-meta; role=preamble
+
+This is an aimpack container (AI MimePack).
+Spec: https://github.com/swordsman/aimpack
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/x-aimpack-meta; role=manifest
+
+bbdbc-tool-batch skill files:
+  SKILL.md (4798 bytes)
+  references/output-format.md (1535 bytes)
+  references/sub-agent-delegation.md (2181 bytes)
+  references/skill-creation-guide.md (10327 bytes)
+  references/rationale.md (2660 bytes)
+  references/tool-manifest.md (1233 bytes)
+  scripts/conditional-batch.sh (1522 bytes)
+  scripts/mime-batch.sh (1244 bytes)
+  scripts/size-gate.sh (941 bytes)
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="SKILL.md"
+X-Aimpack-Checksum-SHA256: 1c78cab32af8108ce1d6e329277f8bc94b4f7c349cdf2b8f53d58baf3b27d4d7
+
+---
+name: bbdbc-tool-batch
+description: "Tool call batching (+delegation if able) to improve token efficiency. Use when tool calls are 1) multiple, 2) sequential, 3) batchable, or 4) routable to a sub-agent."
+---
+
+# BBDBC Tool Batch
+
+Tool calls retransmit the full context window and output joins context permanently; this skill minimizes both costs. Applies to all tool output — file reads, bash commands, API calls, MCP tools — not just files. For full rationale, see `references/rationale.md`.
+
+## Core Technique: Reduce Output at the Source
+
+Every byte of tool output joins context permanently. Always minimize what enters context — every agent, head or sub-agent, applies these techniques on every tool call.
+
+### Pipes: the cheapest gate
+
+Pipes truncate output before it reaches context. Use them to extract what's needed and discard the rest:
+
+```bash
+# Counts instead of listings
+find src/ -name '*.py' | wc -l                    # file count, not file list
+git log --oneline | wc -l                          # commit count, not full log
+
+# Bounded output
+git log --oneline -20                              # last 20, not all history
+git diff --stat                                    # summary, not full diff
+docker logs app 2>&1 | tail -50                    # last 50 lines, not all logs
+
+# Extract specific data
+grep -c 'def ' src/auth/*.py                       # function counts per file
+jq '.dependencies | keys' package.json             # dep names, not full lockfile
+kubectl get pods -o name                            # names only, not full table
+```
+
+The pattern: ask "what do I actually need to know?" and pipe to get exactly that. A count, a summary, the last N lines, a specific field — not the raw dump.
+
+### Pre-check before committing
+
+Before reading unknown content, probe its size:
+
+```bash
+wc -c src/auth/*.py                                # byte counts for files
+git diff | wc -c                                   # diff size before reading it
+curl -sI https://api.example.com/data | grep -i content-length  # API response size
+```
+
+### Size gate
+
+Route any output — file or command — through a size gate. Inline if under threshold; otherwise save to a temp file and report the path. See `scripts/size-gate.sh`:
+
+```bash
+./scripts/size-gate.sh myfile.py                   # gate a file
+git diff HEAD~5 | ./scripts/size-gate.sh           # gate a command via stdin
+kubectl logs deploy/app | ./scripts/size-gate.sh   # gate any piped output
+```
+
+Threshold is configurable via `BATCH_GATE_THRESHOLD` (default: 200000 bytes). When output is gated, surface this to the user — including the threshold, the actual size, and that the threshold is configurable.
+
+## Batch Multiple Operations
+
+Combine independent operations into single tool calls to reduce round-trips.
+
+### Command batching
+
+```bash
+# One call instead of three
+echo "=== git status ===" && git status --short
+echo "=== recent commits ===" && git log --oneline -10
+echo "=== branch ===" && git branch --show-current
+```
+
+### MIME-wrapped file batch
+
+For multi-file reads, `scripts/mime-batch.sh` wraps each file in a MIME multipart container with size gating:
+
+```bash
+./scripts/mime-batch.sh src/app.py src/config.py src/auth.py
+```
+
+### Conditional branching (1 round-trip instead of N)
+
+See `scripts/conditional-batch.sh` — reads a runtime value, branches on it, and batch-reads only the relevant files in one call.
+
+## Sub-Agent Delegation
+
+Batching and pipes apply universally. Sub-agents are an *additional* layer — when available, always use them because they provide a disposable context that shields the head agent from raw output. Sub-agents apply all the same batching and pipe techniques internally. See `references/sub-agent-delegation.md` for work order format and composition patterns.
+
+## Output Format
+
+For MIME tier details (aimpack → munpack-compat → tagged separators), see `references/output-format.md`.
+
+## Planning
+
+For complex multi-operation tasks, plan a tool manifest before executing. See `references/tool-manifest.md`.
+
+## Anti-Patterns
+
+- **Unbounded commands** — `find /`, `grep -r`, `git log`, `docker logs`, `cat unknown_file`. Always pipe to bound output.
+- **Serial single-item tool calls** — batch or delegate.
+- **Assuming output size** — README.md could be 500 bytes or 500KB. `git diff` could be 3 lines or 3MB. Pre-check or pipe.
+- **Re-reading unchanged content** — already in context. Don't re-read.
+- **Requesting full output when a summary suffices** — use `--stat`, `--short`, `--oneline`, `| wc -l`, `| head`, `jq` selectors.
+
+## Integration
+
+- **cbtdag/taskdagger**: Work order = contract. Same pattern.
+- **aimpack**: Tier 1 output format for structured returns.
+- **winnow**: Distilled state informs work order Context sections.
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="references/output-format.md"
+X-Aimpack-Checksum-SHA256: 5000560e120f757746b263e4fa680beac31b1dd4c8c52c88c3ef0ba916f46757
+
+# Output Container Format
+
+Tool outputs — from sub-agents or batched bash — use MIME containers for structured, parseable boundaries.
+
+## Tier 1: aimpack (if skill available)
+
+Full aimpack containers — proper MIME multipart/mixed, Content-Type headers, S-expression instructions, edit history. See the aimpack skill.
+
+## Tier 2: Minimal munpack-compatible MIME (default fallback)
+
+```
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="UNIQUE_BOUNDARY"
+
+--UNIQUE_BOUNDARY
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="result.txt"
+
+[content]
+
+--UNIQUE_BOUNDARY
+Content-Type: application/json
+Content-Disposition: inline; name="metadata"
+
+{"status": "ok", "files_read": 3}
+
+--UNIQUE_BOUNDARY--
+```
+
+Rules:
+- Boundary: randomly generated (e.g., `batch_` + 16 hex chars), **must not appear in any payload** — scan all input files for collisions before emitting any output; regenerate and re-scan if a collision is found. Never regenerate mid-output — earlier parts already used the old boundary, producing malformed MIME.
+- Each part gets `Content-Type` and `Content-Disposition` or `name` parameter
+- Final boundary gets trailing `--`
+
+## Tier 3: Tagged separators (last resort)
+
+```
+=== FILE:config.yaml BOUNDARY:a7f3x9q2 ===
+[content]
+=== END:config.yaml BOUNDARY:a7f3x9q2 ===
+```
+
+**Adversarially fragile.** Any file containing the separator pattern causes content misattribution. Trivially injectable. Use only when Tier 1+2 are genuinely unavailable, never for untrusted input.
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="references/sub-agent-delegation.md"
+X-Aimpack-Checksum-SHA256: 80f73bb889890c7c4f5df3d56af77842c475dc0bb5461e08867dcc9a7bdbced8
+
+# Sub-Agent Delegation
+
+The sub-agent runs tools in a fresh, disposable context. Catastrophic output destroys the sub-agent — not the head-agent. The sub-agent extracts knowledge from raw output and returns only what's needed.
+
+## Work Order (= DbC Contract)
+
+Don't send bare tool calls. Send a structured work order — Design by Contract applied to delegation.
+
+| Component | Contract Analog | Purpose |
+|---|---|---|
+| **Context** | Preamble | What the head-agent is doing and why |
+| **Intent** | Task description | Specific goal of this delegation |
+| **Output Spec** | Return type | What to return, in what shape — without this, sub-agent dumps raw output, defeating the purpose |
+| **Expectations** | Invariants | What normal looks like, bounds on expected results |
+| **Fallback** | Error handling | What to do when things go wrong |
+
+### Example
+```
+CONTEXT: Refactoring auth module. Large monorepo, file sizes unknown.
+INTENT: Read Python files under src/auth/, identify module structure + API surface.
+OUTPUT SPEC: File list with byte counts. Public functions/classes (name+sig only).
+  Import graph. Do NOT return file contents unless <10KB.
+EXPECTATIONS: 5-20 files. If >50, report count and stop. Flag files >200KB.
+FALLBACK: If src/auth/ missing, check auth/, authentication/. If nothing, report
+  that — don't search entire repo. On tool errors, report and continue.
+```
+
+## Always Delegate When Available
+
+Sub-agent creation cost ≈ regular tool call cost. There is no cost reason to skip delegation — always use it unless the environment doesn't support sub-agents. But delegation is additive to batching, not a replacement. Sub-agents apply the same batching, pipe, and size-gating techniques internally.
+
+## Composition Granularity
+
+Choose based on dependency structure, not habit:
+
+- **1 sub-agent : 1 tool call** — max isolation, for high-risk/unpredictable calls
+- **1 sub-agent : N tool calls** — dependent chains where intermediate results inform next steps
+- **N sub-agents : 1 each** — max parallelism, independent operations
+- **Hybrid** — mix as needed
+
+## Return Format
+
+Sub-agents return via MIME containers. See `output-format.md`.
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="references/skill-creation-guide.md"
+X-Aimpack-Checksum-SHA256: 4d077c6c4b8eceaa90417f3d34bd78b97a2a728e81f27ebf3ec1cd4ad884c0bd
+
+# Official Skill Creation Guide
+
+Consolidated from Anthropic's official sources:
+- https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+- https://github.com/anthropics/claude-plugins-official/blob/main/plugins/skill-creator/skills/skill-creator/SKILL.md
+- https://code.claude.com/docs/en/skills
+- "The Complete Guide to Building Skills for Claude" (Anthropic PDF)
+
+---
+
+## Anatomy of a Skill
+
+```
+skill-name/
+├── SKILL.md (required)
+│   ├── YAML frontmatter (name, description required)
+│   └── Markdown instructions
+└── Bundled Resources (optional)
+    ├── scripts/    - Executable code for deterministic/repetitive tasks
+    ├── references/ - Docs loaded into context as needed
+    └── assets/     - Files used in output (templates, icons, fonts)
+```
+
+## Progressive Disclosure
+
+Skills use a three-level loading system to manage context efficiently:
+
+1. **Metadata** (name + description) - Always in context (~100 words)
+2. **SKILL.md body** - When skill triggers (<500 lines / <5k words)
+3. **Bundled resources** - As needed by Claude (unlimited; scripts can execute without reading into context)
+
+Key patterns:
+- Keep SKILL.md under 500 lines
+- If approaching this limit, add hierarchy with clear pointers to reference files
+- Reference files clearly from SKILL.md with guidance on when to read them
+- For large reference files (>300 lines), include a table of contents
+- Prefer references files for detailed information unless it's truly core to the skill
+- Keep only essential procedural instructions and workflow guidance in SKILL.md
+- Move detailed reference material, schemas, and examples to references files
+- Information should live in either SKILL.md or references files, not both
+
+## YAML Frontmatter
+
+```yaml
+---
+name: skill-name-in-kebab-case
+description: What it does and when to use it.
+---
+```
+
+### Required fields
+- **name**: kebab-case only, should match folder name
+- **description**: Must include WHAT + WHEN, under 1024 characters, no XML tags
+
+### Naming rules
+- Folder name uses kebab-case (no spaces, capitals, or underscores)
+- No "claude" or "anthropic" in skill name
+- No README.md inside skill folder
+- SKILL.md must be exact (case-sensitive)
+
+### Description best practices
+
+The description field is the primary mechanism that determines whether Claude invokes a skill. Claude has a tendency to "undertrigger" skills — to not use them when they'd be useful. To combat this, make descriptions a little bit "pushy."
+
+Structure: [What it does] + [When to use] + [Key capabilities]
+
+Good: "Analyzes Figma design files and generates developer handoff documentation. Use when uploading .fig files or asking for design specs."
+
+Bad: "Helps with projects" (too vague, missing triggers)
+
+Instead of: "How to build a simple fast dashboard to display internal data."
+
+Write: "How to build a simple fast dashboard to display internal data. Make sure to use this skill whenever the user mentions dashboards, data visualization, internal metrics, or wants to display any kind of company data, even if they don't explicitly ask for a 'dashboard.'"
+
+Put the key use case first: the combined description and when_to_use text is truncated at 1,536 characters in the skill listing.
+
+### Optional frontmatter fields
+
+| Field                      | Description                                                                |
+|:---------------------------|:---------------------------------------------------------------------------|
+| `when_to_use`              | Additional trigger context, appended to description                        |
+| `argument-hint`            | Hint shown during autocomplete, e.g. `[issue-number]`                      |
+| `arguments`                | Named positional arguments for `$name` substitution                        |
+| `disable-model-invocation` | Set `true` to prevent auto-invocation (manual `/name` only)                |
+| `user-invocable`           | Set `false` to hide from `/` menu (background knowledge only)              |
+| `allowed-tools`            | Tools Claude can use without asking permission during the invoking turn     |
+| `disallowed-tools`         | Tools removed from Claude's pool while skill is active                     |
+| `model`                    | Model override for this skill's turn                                       |
+| `effort`                   | Effort level override (`low`, `medium`, `high`, `xhigh`, `max`)            |
+| `context`                  | Set to `fork` to run in a forked subagent context                          |
+| `agent`                    | Which subagent type to use when `context: fork` is set                     |
+| `hooks`                    | Hooks scoped to this skill's lifecycle                                     |
+| `paths`                    | Glob patterns limiting when skill activates                                |
+| `shell`                    | Shell for `!command` blocks (`bash` or `powershell`)                       |
+
+## Writing Style
+
+- Write the entire skill using **imperative/infinitive form** (verb-first instructions), not second person
+- Use objective, instructional language (e.g., "To accomplish X, do Y" rather than "You should do X" or "If you need to do X")
+- Explain the **why** behind everything — today's LLMs are smart and work better when they understand reasoning rather than following rigid MUSTs
+- If you find yourself writing ALWAYS or NEVER in all caps, that's a yellow flag — reframe and explain the reasoning instead
+- Make the skill general and not super-narrow to specific examples
+- Use theory of mind
+
+## Skill Content Types
+
+### Reference content
+Adds knowledge Claude applies to current work — conventions, patterns, style guides, domain knowledge. Runs inline alongside conversation context.
+
+### Task content
+Step-by-step instructions for specific actions. Often invoked directly with `/skill-name`. Consider `disable-model-invocation: true` and `context: fork`.
+
+## Skill Content Lifecycle
+
+When invoked, the rendered SKILL.md content enters the conversation as a single message and stays there for the rest of the session. Once a skill loads, its content stays in context across turns, so every line is a recurring token cost. State what to do rather than narrating how or why.
+
+## Dynamic Context Injection
+
+The `!command` syntax runs shell commands before the skill content is sent to Claude:
+
+```yaml
+---
+name: pr-summary
+description: Summarize changes in a pull request
+context: fork
+---
+
+## Pull request context
+- PR diff: !`gh pr diff`
+- Changed files: !`gh pr diff --name-only`
+
+## Your task
+Summarize this pull request...
+```
+
+## String Substitutions
+
+| Variable                | Description                                   |
+|:------------------------|:----------------------------------------------|
+| `$ARGUMENTS`            | All arguments passed when invoking the skill   |
+| `$ARGUMENTS[N]`         | Specific argument by 0-based index             |
+| `$N`                    | Shorthand for `$ARGUMENTS[N]`                  |
+| `$name`                 | Named argument from `arguments` frontmatter    |
+| `${CLAUDE_SESSION_ID}`  | Current session ID                             |
+| `${CLAUDE_EFFORT}`      | Current effort level                           |
+| `${CLAUDE_SKILL_DIR}`   | Directory containing the SKILL.md file         |
+| `${CLAUDE_PROJECT_DIR}` | Project root directory                         |
+
+## Supporting Files
+
+```
+my-skill/
+├── SKILL.md (required - overview and navigation)
+├── reference.md (detailed API docs - loaded when needed)
+├── examples.md (usage examples - loaded when needed)
+└── scripts/
+    └── helper.py (utility script - executed, not loaded)
+```
+
+Reference supporting files from SKILL.md so Claude knows what each file contains and when to load it.
+
+### Scripts (`scripts/`)
+- When the same code is being rewritten repeatedly or deterministic reliability is needed
+- Token efficient, deterministic, may be executed without loading into context
+- Scripts may still need to be read by Claude for patching or environment-specific adjustments
+
+### References (`references/`)
+- Documentation Claude should reference while working
+- Keeps SKILL.md lean, loaded only when Claude determines it's needed
+- If files are large (>10k words), include grep search patterns in SKILL.md
+
+### Assets (`assets/`)
+- Files used within the output Claude produces (templates, images, fonts)
+- Not intended to be loaded into context
+
+## Domain Organization
+
+When a skill supports multiple domains/frameworks, organize by variant:
+
+```
+cloud-deploy/
+├── SKILL.md (workflow + selection)
+└── references/
+    ├── aws.md
+    ├── gcp.md
+    └── azure.md
+```
+
+Claude reads only the relevant reference file.
+
+## Writing Patterns
+
+### Defining output formats
+```
+## Report structure
+ALWAYS use this exact template:
+# [Title]
+## Executive summary
+## Key findings
+## Recommendations
+```
+
+### Examples pattern
+```
+## Commit message format
+**Example 1:**
+Input: Added user authentication with JWT tokens
+Output: feat(auth): implement JWT-based authentication
+```
+
+## Anti-patterns
+
+- Overly rigid MUSTs and NEVERs without explaining why
+- Overfitting to specific examples rather than generalizing
+- Including information in both SKILL.md and reference files (duplication)
+- Skills that could surprise users in their intent
+- Descriptions that are too vague to trigger properly
+- Skill body that's too long (wastes tokens every turn it stays in context)
+
+## Evaluation and Iteration
+
+### Triggering issues
+- **Undertriggering**: Skill doesn't load when needed → add detail and nuance to description
+- **Overtriggering**: Skill loads for irrelevant queries → add negative triggers, be more specific
+
+### Testing approach
+1. Triggering tests — does it fire on relevant prompts and not on unrelated ones?
+2. Functional tests — does it produce correct output?
+3. Performance comparison — tokens consumed, API calls, back-and-forth messages
+
+### Iteration signals
+- Read transcripts, not just final outputs
+- Look for repeated work across test cases (bundle those scripts)
+- Remove instructions that aren't pulling their weight
+- Generalize from feedback rather than overfitting to examples
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="references/rationale.md"
+X-Aimpack-Checksum-SHA256: 04ae3ccaf41d9eae4287fa1b4f92863d7554a7789223ecc573655446b8794941
+
+# Why This Skill Exists
+
+Every tool call triggers a full inference round-trip. The entire context window is retransmitted each time — the API is stateless, so every request sends the full conversation history. At 80K context, 5 file reads = ~400K tokens of redundant retransmission — `O(context_size)` cost per `O(1)` operation. And it's worse than that: each tool result joins context permanently, so the window grows with every call, making subsequent retransmissions even larger.
+
+One bad return can destroy the conversation.
+
+## The Ergonomics Mismatch
+
+Shell tools were designed for human terminals in 1969. Their output — scrollable, visual, unbounded — is hostile to AI consumption where every token is permanent and irrecoverable. You almost never need raw output. You need to *know something*.
+
+## Observed Failures
+
+- `ls -la` on a large folder: completely destroyed a context window in a live session.
+- `cat` on an 8MB file: crushed context AND exhausted a 5-hour usage quota in one call.
+- `grep -r`, `find`, API responses, search results — all unbounded by default.
+
+## The Core Insight
+
+Batching takes N separate tool calls — each a full context retransmission — and performs the work within a single tool call, concatenating the outputs into one well-formed response. This reduces N retransmissions to 1, and that compounds over a conversation: fewer calls means less context growth, which means cheaper subsequent calls, which means dramatically more work per quota. This applies to all agents — head agents and sub-agents alike.
+
+Pipes provide an additional layer of shielding at the command level. Intermediate data stays ephemeral in the pipe buffer and never enters context. `find src/ -name '*.py' | wc -l` produces a number, not a file listing.
+
+Sub-agent delegation is an excellent adjunct to batching. Sub-agent creation cost ≈ regular tool call cost (both are one round-trip), but the sub-agent provides a disposable context — raw output stays there instead of joining the head agent's permanent context. Delegation should always be used when available, but does not replace batching — sub-agents apply the same batching and pipe techniques internally.
+
+What the harness calls "parallel tool calls" (multiple calls in one turn) is not true parallelism — each call still triggers a separate inference cycle retransmitting the full context. The "parallel" just removes the user interaction step between calls. The bottleneck is inference (GPU processing), not I/O (disk reads are negligible). True parallelism requires sub-agents, because each sub-agent is an independent inference process with its own context.
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="references/tool-manifest.md"
+X-Aimpack-Checksum-SHA256: c54b65d8f4832c7abd3b86431218236fa8ef9a1181d7de2caabde5a9b0dd0acb
+
+# Tool Manifest: Planning Phase
+
+Before executing any tool operations, enumerate needs and plan batches. This is pure reasoning — zero tool calls, saves many round-trips.
+
+## Steps
+
+1. **List all operations** — files, commands, queries, API calls needed
+2. **Classify each** — provably bounded? Dependencies between operations?
+3. **Group into batches** — independent ops batch together; dependent chains stay in a single sub-agent
+4. **Choose strategy** — sub-agent (default), batched bash (dependent chains or no sub-agents), direct (provably tiny)
+5. **Specify output contracts** — for each batch/delegation, define what you need back
+
+## Example
+
+```
+TASK: Understand project structure for refactoring
+OPS:
+  1. List Python files in src/       [unbounded count]
+  2. Read src/app.py                 [unknown size]
+  3. Read src/settings.py            [unknown size]
+  4. Check coverage report           [potentially huge]
+  5. Read requirements.txt           [unknown size]
+PLAN:
+  Sub-agent A (ops 1-3): dependent chain. Return file list + contents if <50KB each.
+  Sub-agent B (op 4): high-risk. Return summary stats only.
+  Sub-agent C (op 5): Return full contents. Fallback: if >100KB, dependency names only.
+```
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="scripts/conditional-batch.sh"
+X-Aimpack-Checksum-SHA256: 882d4e2264776c838df3c4f8ab7bbbf0b14fe2e4c872d6272be93c7817fdc2cf
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Conditional batch: branch on a runtime value, then batch-read the
+# relevant files. 1 round-trip instead of N.
+# Usage: ./conditional-batch.sh
+# Env:
+#   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
+
+GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
+
+gen_boundary() { echo "batch_$(od -An -tx1 -N8 /dev/urandom | tr -d ' \n')"; }
+
+AUTH_TYPE=$(grep -Po '(?<=AUTH_BACKEND=)\w+' .env 2>/dev/null || echo "unknown")
+
+if [ "$AUTH_TYPE" = "oauth" ]; then
+  FILES="src/oauth.py src/tokens.py"
+else
+  FILES="src/jwt.py src/claims.py"
+fi
+
+# Generate a boundary that doesn't collide with any input file content.
+collision=true
+while $collision; do
+  BOUNDARY=$(gen_boundary)
+  collision=false
+  for f in $FILES; do
+    if [ -f "$f" ] && grep -qF "$BOUNDARY" "$f" 2>/dev/null; then
+      collision=true
+      break
+    fi
+  done
+done
+
+echo "MIME-Version: 1.0"
+echo "Content-Type: multipart/mixed; boundary=\"${BOUNDARY}\""
+echo ""
+
+echo "--${BOUNDARY}"
+echo "Content-Disposition: inline; name=\"auth_type\""
+echo ""
+echo "$AUTH_TYPE"
+
+for f in $FILES; do
+  echo "--${BOUNDARY}"
+  echo "Content-Disposition: attachment; filename=\"${f}\""
+  echo ""
+
+  if [ ! -f "$f" ]; then
+    echo "[NOT FOUND]"
+    continue
+  fi
+
+  BYTES=$(wc -c < "$f")
+  if [ "$BYTES" -le "$GATE_THRESHOLD" ]; then
+    cat "$f"
+  else
+    TMPREF=$(mktemp)
+    cp "$f" "$TMPREF"
+    echo "[GATED: ${BYTES} bytes > ${GATE_THRESHOLD} threshold — available at ${TMPREF}]"
+  fi
+done
+echo "--${BOUNDARY}--"
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="scripts/mime-batch.sh"
+X-Aimpack-Checksum-SHA256: 99a7c95e8004787c6cbb5a0ef97ecbceba95ac4a6811a132bd90f93317ca7a1c
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Batch-read files into a MIME multipart container with size gating.
+# Usage: ./mime-batch.sh file1.py file2.py config.yaml
+# Env:
+#   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
+
+GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
+
+gen_boundary() { echo "batch_$(od -An -tx1 -N8 /dev/urandom | tr -d ' \n')"; }
+
+# Generate a boundary that doesn't collide with any input file content.
+collision=true
+while $collision; do
+  BOUNDARY=$(gen_boundary)
+  collision=false
+  for f in "$@"; do
+    if [ -f "$f" ] && grep -qF "$BOUNDARY" "$f" 2>/dev/null; then
+      collision=true
+      break
+    fi
+  done
+done
+
+echo "MIME-Version: 1.0"
+echo "Content-Type: multipart/mixed; boundary=\"${BOUNDARY}\""
+echo ""
+
+for f in "$@"; do
+  echo "--${BOUNDARY}"
+  echo "Content-Type: text/plain; charset=utf-8"
+  echo "Content-Disposition: attachment; filename=\"${f}\""
+  echo ""
+
+  if [ ! -f "$f" ]; then
+    echo "[NOT FOUND]"
+    continue
+  fi
+
+  BYTES=$(wc -c < "$f")
+  if [ "$BYTES" -le "$GATE_THRESHOLD" ]; then
+    cat "$f"
+  else
+    TMPREF=$(mktemp)
+    cp "$f" "$TMPREF"
+    echo "[GATED: ${BYTES} bytes > ${GATE_THRESHOLD} threshold — available at ${TMPREF}]"
+  fi
+done
+echo "--${BOUNDARY}--"
+
+--aimpack_cc3c699bf9c18c14
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="scripts/size-gate.sh"
+X-Aimpack-Checksum-SHA256: 2d567ed873a7018dfb0d184902903535088125265056e59c69d6b166db89d4fe
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Size-gate a file or piped command output.
+# Usage:
+#   ./size-gate.sh <file>              # gate a file
+#   some_command | ./size-gate.sh      # gate piped output
+# Env:
+#   BATCH_GATE_THRESHOLD  — max bytes to inline (default: 200000)
+
+GATE_THRESHOLD="${BATCH_GATE_THRESHOLD:-200000}"
+
+if [ $# -ge 1 ]; then
+  FILE="$1"
+  if [ ! -f "$FILE" ]; then
+    echo "[NOT FOUND: ${FILE}]"
+    exit 1
+  fi
+  BYTES=$(wc -c < "$FILE")
+  if [ "$BYTES" -le "$GATE_THRESHOLD" ]; then
+    cat "$FILE"
+  else
+    TMPREF=$(mktemp)
+    cp "$FILE" "$TMPREF"
+    echo "[GATED: ${BYTES} bytes > ${GATE_THRESHOLD} threshold — available at ${TMPREF}]"
+  fi
+else
+  TMPREF=$(mktemp)
+  cat > "$TMPREF"
+  BYTES=$(wc -c < "$TMPREF")
+  if [ "$BYTES" -le "$GATE_THRESHOLD" ]; then
+    cat "$TMPREF"
+    rm -f "$TMPREF"
+  else
+    echo "[GATED: ${BYTES} bytes > ${GATE_THRESHOLD} threshold — available at ${TMPREF}]"
+  fi
+fi
+
+--aimpack_cc3c699bf9c18c14--

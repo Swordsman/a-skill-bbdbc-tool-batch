@@ -16,6 +16,6 @@ Shell tools were designed for human terminals in 1969. Their output — scrollab
 
 ## The Core Insight
 
-Sub-agent creation cost ≈ regular tool call cost (both are one round-trip), but the sub-agent provides a context blast shield for free. There is no cost reason to skip delegation. The only valid exception is when output is **provably** zero-variance and trivially small — in practice, just datetime and single-path existence checks.
+Sub-agent creation cost ≈ regular tool call cost (both are one round-trip retransmitting full context), but the sub-agent provides a context blast shield for free. Delegation at worst breaks even and almost always results in massively improved token efficiency over the course of a session — raw output stays in the sub-agent's disposable context instead of joining the head agent's permanent context. There is no valid efficiency reason to skip delegation. The only reason not to delegate is when delegation is impossible — the environment doesn't support sub-agents.
 
-"Provably bounded" means you can guarantee output size before execution. Not "probably small," not "usually small" — *provably*.
+What the harness calls "parallel tool calls" (multiple calls in one turn) is not true parallelism — each call still triggers a separate inference cycle retransmitting the full context. The "parallel" just removes the user interaction step between calls. The bottleneck is inference (GPU processing), not I/O (disk reads are negligible). True parallelism requires sub-agents, because each sub-agent is an independent inference process with its own context.

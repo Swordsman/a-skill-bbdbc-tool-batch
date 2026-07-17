@@ -56,7 +56,7 @@ This shapes how the skill must be designed:
 
 The `description` field in SKILL.md frontmatter is the primary mechanism that determines whether Claude invokes the skill. Claude undertriggers by default — descriptions must be pushy, with explicit trigger phrases covering the contexts where the skill should activate. See `references/skill-creation-guide.md` for the official guidance.
 
-Description triggers must be phrased in terms of conditions the agent can observe about its own task, not in terms of the concepts the skill teaches. Agents generally lack deep understanding of their own execution mechanics — if they already understood the principles, they wouldn't need the skill. Terms like "multiple" and "sequential" describe observable task properties; terms like "batchable" presuppose understanding of batching and are ambiguous (does it mean "can be" or "should be"). The current description's use of "batchable" is a known weak point — revisit it periodically to see if a more observable trigger phrase emerges from real usage patterns.
+Description triggers must be phrased in terms of conditions the agent can observe about its own task, not in terms of the concepts the skill teaches. See "Agents and self-awareness" above for why. The current description's use of "batchable" is a known weak point — revisit it periodically to see if a more observable trigger phrase emerges from real usage patterns.
 
 ### Don't add features the skill doesn't need
 

@@ -76,9 +76,9 @@ When a conversation produces insights that are fundamental, non-obvious, or impo
 
 ### Produce distributable files on every commit
 
-Whenever committing changes to the skill, regenerate both distributable files at the repo root before committing:
+Whenever committing changes to the skill, regenerate both distributable files at the repo root by running `./build-distributables.sh` before committing:
 
-- **`bbdbc-tool-batch.skill`** — a copy of the current `SKILL.md`. This is the portable single-file form of the skill that can be dropped into any `.claude/skills/` directory.
+- **`bbdbc-tool-batch.skill`** — a zip archive produced by the skill-creator's `package_skill` script. This is the distributable format that shows a "Save skill" button when presented to users.
 - **`bbdbc-tool-batch.aimpack`** — an aimpack (MIME multipart) container bundling all skill files (SKILL.md, references, scripts) with SHA256 checksums per part. This is the full distributable bundle.
 
-Both files must reflect the state of the skill *as it will be committed* — generate them after making skill changes but before `git add`.
+Both files must reflect the state of the skill *as it will be committed* — run the script after making skill changes but before `git add`. The script requires the skill-creator to be installed at `~/.claude/skills/skill-creator` (override with `SKILL_CREATOR_PATH`).

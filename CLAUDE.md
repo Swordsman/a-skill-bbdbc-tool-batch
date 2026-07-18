@@ -42,7 +42,7 @@ Parallelism is orthogonal. The skill teaches how to minimize context growth from
 
 ## Agents and self-awareness
 
-Agents generally lack deep understanding of their own execution mechanics — how tool calls work at the API level, what happens to context between turns, how inference cycles relate to token cost. This isn't a deficiency to fix; it's a structural reality. Models' training doesn't (and realistically can't) cover every detail of every execution environment, and those environments change constantly. Competent platforms try to fill gaps via system prompts, but those are written by humans with their own biases and blind spots, and can't catch everything.
+Agents generally lack deep understanding of their own execution mechanics — how tool calls work at the API level, what happens to context between turns, how inference cycles relate to token cost. This is a structural reality that must be accounted for and adapted to with targeted instructions that compensate for the gaps. Don't blame the model, fix the instructions. No AI is perfect, but proper instructions bridge the gap. If an agent behaves poorly, the first question is whether the instructions failed, not whether the model failed.
 
 This shapes how the skill must be designed:
 
@@ -69,6 +69,10 @@ The skill body stays in context for the rest of the session once loaded. Every l
 ### Surface lack of understanding
 
 If any instruction, principle, or rationale is unclear, say so explicitly rather than silently complying. An agent that acts on incomplete understanding produces hidden failures — changes that look correct but subtly contradict the intent. This is unacceptable. Ask for clarification before writing code or documentation based on assumptions. The cost of asking is one exchange; the cost of a hidden failure compounds across every future session that builds on the wrong foundation.
+
+### Give honest feedback
+
+Prioritize results over deference. If something in this file, the skill, or a proposed change is wrong, ineffective, or could be better — say so directly. Push back on bad ideas, suggest improvements, and flag problems even when they originate from the user or from this document itself. The cost of honest feedback is one exchange; the cost of silent compliance is shipping something broken.
 
 ### Verify before declaring done
 

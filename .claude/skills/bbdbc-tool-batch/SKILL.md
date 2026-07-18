@@ -1,6 +1,6 @@
 ---
 name: bbdbc-tool-batch
-description: "Tool call batching and delegation for token efficiency. ALWAYS activate when the user asks you to do ANY work — coding, debugging, fixing, refactoring, investigating, building, reviewing, searching, deploying, testing, or any task that will require tool calls. Every work request benefits from batching. Do not wait to recognize 'batchable' patterns — if you are about to do work, load this skill first."
+description: "Tool call batching and delegation for token efficiency. Use this skill before performing any task — any user request that requires action, not just a spoken answer. If you will do something rather than just say something, load this skill first. Do not judge whether the task is 'complex enough' — every action benefits from batching."
 ---
 
 # BBDBC Tool Batch

@@ -1,18 +1,18 @@
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="aimpack_cc3c699bf9c18c14"
-X-Aimpack-Container-Id: b755ba75-0020-41d3-93ed-6909a86b3ec9
+Content-Type: multipart/mixed; boundary="aimpack_3cf82079c1903fc0"
+X-Aimpack-Container-Id: 6995f56e-9ffa-403f-92fe-73cafa0c20b6
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/x-aimpack-meta; role=preamble
 
 This is an aimpack container (AI MimePack).
 Spec: https://github.com/swordsman/aimpack
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/x-aimpack-meta; role=manifest
 
 bbdbc-tool-batch skill files:
-  SKILL.md (4798 bytes)
+  SKILL.md (5039 bytes)
   references/output-format.md (1535 bytes)
   references/sub-agent-delegation.md (2181 bytes)
   references/skill-creation-guide.md (10327 bytes)
@@ -22,14 +22,14 @@ bbdbc-tool-batch skill files:
   scripts/mime-batch.sh (1244 bytes)
   scripts/size-gate.sh (941 bytes)
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="SKILL.md"
-X-Aimpack-Checksum-SHA256: 1c78cab32af8108ce1d6e329277f8bc94b4f7c349cdf2b8f53d58baf3b27d4d7
+X-Aimpack-Checksum-SHA256: 4c8e970236dfe0ffdf6891e43e0d98489001eb02722be30bd0c3656aca9811c9
 
 ---
 name: bbdbc-tool-batch
-description: "Tool call batching (+delegation if able) to improve token efficiency. Use when tool calls are 1) multiple, 2) sequential, 3) batchable, or 4) routable to a sub-agent."
+description: "Tool call batching and delegation for token efficiency. ALWAYS activate when the user asks you to do ANY work — coding, debugging, fixing, refactoring, investigating, building, reviewing, searching, deploying, testing, or any task that will require tool calls. Every work request benefits from batching. Do not wait to recognize 'batchable' patterns — if you are about to do work, load this skill first."
 ---
 
 # BBDBC Tool Batch
@@ -135,7 +135,7 @@ For complex multi-operation tasks, plan a tool manifest before executing. See `r
 - **aimpack**: Tier 1 output format for structured returns.
 - **winnow**: Distilled state informs work order Context sections.
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="references/output-format.md"
 X-Aimpack-Checksum-SHA256: 5000560e120f757746b263e4fa680beac31b1dd4c8c52c88c3ef0ba916f46757
@@ -184,7 +184,7 @@ Rules:
 
 **Adversarially fragile.** Any file containing the separator pattern causes content misattribution. Trivially injectable. Use only when Tier 1+2 are genuinely unavailable, never for untrusted input.
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="references/sub-agent-delegation.md"
 X-Aimpack-Checksum-SHA256: 80f73bb889890c7c4f5df3d56af77842c475dc0bb5461e08867dcc9a7bdbced8
@@ -233,7 +233,7 @@ Choose based on dependency structure, not habit:
 
 Sub-agents return via MIME containers. See `output-format.md`.
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="references/skill-creation-guide.md"
 X-Aimpack-Checksum-SHA256: 4d077c6c4b8eceaa90417f3d34bd78b97a2a728e81f27ebf3ec1cd4ad884c0bd
@@ -474,7 +474,7 @@ Output: feat(auth): implement JWT-based authentication
 - Remove instructions that aren't pulling their weight
 - Generalize from feedback rather than overfitting to examples
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="references/rationale.md"
 X-Aimpack-Checksum-SHA256: 04ae3ccaf41d9eae4287fa1b4f92863d7554a7789223ecc573655446b8794941
@@ -505,7 +505,7 @@ Sub-agent delegation is an excellent adjunct to batching. Sub-agent creation cos
 
 What the harness calls "parallel tool calls" (multiple calls in one turn) is not true parallelism — each call still triggers a separate inference cycle retransmitting the full context. The "parallel" just removes the user interaction step between calls. The bottleneck is inference (GPU processing), not I/O (disk reads are negligible). True parallelism requires sub-agents, because each sub-agent is an independent inference process with its own context.
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="references/tool-manifest.md"
 X-Aimpack-Checksum-SHA256: c54b65d8f4832c7abd3b86431218236fa8ef9a1181d7de2caabde5a9b0dd0acb
@@ -538,7 +538,7 @@ PLAN:
   Sub-agent C (op 5): Return full contents. Fallback: if >100KB, dependency names only.
 ```
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="scripts/conditional-batch.sh"
 X-Aimpack-Checksum-SHA256: 882d4e2264776c838df3c4f8ab7bbbf0b14fe2e4c872d6272be93c7817fdc2cf
@@ -607,7 +607,7 @@ for f in $FILES; do
 done
 echo "--${BOUNDARY}--"
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="scripts/mime-batch.sh"
 X-Aimpack-Checksum-SHA256: 99a7c95e8004787c6cbb5a0ef97ecbceba95ac4a6811a132bd90f93317ca7a1c
@@ -663,7 +663,7 @@ for f in "$@"; do
 done
 echo "--${BOUNDARY}--"
 
---aimpack_cc3c699bf9c18c14
+--aimpack_3cf82079c1903fc0
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: attachment; filename="scripts/size-gate.sh"
 X-Aimpack-Checksum-SHA256: 2d567ed873a7018dfb0d184902903535088125265056e59c69d6b166db89d4fe
@@ -706,4 +706,4 @@ else
   fi
 fi
 
---aimpack_cc3c699bf9c18c14--
+--aimpack_3cf82079c1903fc0--

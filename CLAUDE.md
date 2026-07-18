@@ -56,7 +56,7 @@ This shapes how the skill must be designed:
 
 The `description` field in SKILL.md frontmatter is the primary mechanism that determines whether Claude invokes the skill. Claude undertriggers by default — descriptions must be pushy, with explicit trigger phrases covering the contexts where the skill should activate. See `references/skill-creation-guide.md` for the official guidance.
 
-Description triggers must be phrased in terms of conditions the agent can observe about its own task, not in terms of the concepts the skill teaches. See "Agents and self-awareness" above for why. The current description's use of "batchable" is a known weak point — revisit it periodically to see if a more observable trigger phrase emerges from real usage patterns.
+Description triggers must be phrased in terms of conditions the agent can observe about its own task, not in terms of the concepts the skill teaches. See "Agents and self-awareness" above for why. The previous description's use of "batchable" was replaced — the trigger now activates on any work request, which is the most observable condition possible ("the user asked me to do work").
 
 ### Don't add features the skill doesn't need
 
@@ -73,3 +73,12 @@ If any instruction, principle, or rationale is unclear, say so explicitly rather
 ### Persist deep insights
 
 When a conversation produces insights that are fundamental, non-obvious, or important to the skill's design rationale — especially insights about how agents work, why certain design choices matter, or principles that inform future decisions — persist them to this file immediately. Conversation context is ephemeral; CLAUDE.md survives across sessions. An insight that isn't written down is an insight that will be re-derived (at best) or lost (at worst) by every future session. Don't wait until the end of a conversation to capture these — write them as they emerge.
+
+### Produce distributable files on every commit
+
+Whenever committing changes to the skill, regenerate both distributable files at the repo root before committing:
+
+- **`bbdbc-tool-batch.skill`** — a copy of the current `SKILL.md`. This is the portable single-file form of the skill that can be dropped into any `.claude/skills/` directory.
+- **`bbdbc-tool-batch.aimpack`** — an aimpack (MIME multipart) container bundling all skill files (SKILL.md, references, scripts) with SHA256 checksums per part. This is the full distributable bundle.
+
+Both files must reflect the state of the skill *as it will be committed* — generate them after making skill changes but before `git add`.

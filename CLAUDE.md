@@ -70,6 +70,10 @@ The skill body stays in context for the rest of the session once loaded. Every l
 
 If any instruction, principle, or rationale is unclear, say so explicitly rather than silently complying. An agent that acts on incomplete understanding produces hidden failures — changes that look correct but subtly contradict the intent. This is unacceptable. Ask for clarification before writing code or documentation based on assumptions. The cost of asking is one exchange; the cost of a hidden failure compounds across every future session that builds on the wrong foundation.
 
+### Verify before declaring done
+
+Never report work as complete without verifying the actual output. "I ran the command" is not verification — check that the result is correct. For distributable files: confirm the `.skill` is a zip archive (not plain text), confirm the `.aimpack` checksums match the source files, confirm the build script runs clean. For PRs: check that the merge included all intended commits (merges can land before late pushes). For any change: verify the thing you changed actually reflects what you intended. The cost of a verification step is trivial; the cost of shipping a broken artifact compounds across every user who encounters it.
+
 ### Persist deep insights
 
 When a conversation produces insights that are fundamental, non-obvious, or important to the skill's design rationale — especially insights about how agents work, why certain design choices matter, or principles that inform future decisions — persist them to this file immediately. Conversation context is ephemeral; CLAUDE.md survives across sessions. An insight that isn't written down is an insight that will be re-derived (at best) or lost (at worst) by every future session. Don't wait until the end of a conversation to capture these — write them as they emerge.
